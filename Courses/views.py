@@ -2,7 +2,8 @@ from rest_framework import generics, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from .models import Course
-from .serializers import CourseSerializer
+from .serializers import *
+from .models import Enrollment
 
 class CourseListCreateView(generics.ListCreateAPIView):
     """
@@ -85,3 +86,23 @@ class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
             },
             status=status.HTTP_204_NO_CONTENT,
         )
+# views.py
+
+
+class EnrollmentListView(generics.ListAPIView):
+    queryset = Enrollment.objects.all()
+    serializer_class = EnrollmentSerializer
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"error": "An error occurred while fetching enrollments.", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+class CourseRetriveView(generics.RetrieveAPIView):
+   
+   pass

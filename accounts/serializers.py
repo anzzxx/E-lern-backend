@@ -1,20 +1,18 @@
 from .models import CustomUser
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-
 import logging
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-from rest_framework_simplejwt.tokens import RefreshToken 
-
-
 import random
 import datetime
 from django.utils.timezone import now  # ✅ Import now() correctly
 from rest_framework import serializers
 from django.core.mail import send_mail
 from .models import CustomUser
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -91,26 +89,42 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 logger = logging.getLogger(__name__)
-User = get_user_model()  
+User = get_user_model()
+
+
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
     def validate(self, attrs):
         try:
             logger.info(f"Received data: {attrs}")  # Log input data
 
-            refresh = RefreshToken(attrs["refresh"])  # Decode token
+            refresh = RefreshToken(attrs["refresh"])  # Decode refresh token
             logger.info(f"Decoded refresh token: {refresh}")
 
             data = super().validate(attrs)  # Process normally
+            access_token = AccessToken(data["access"])  # Decode access token
 
-            # Fetch user ID from refresh token
             user_id = refresh["user_id"]
             try:
                 user = User.objects.get(id=user_id)
-                data["is_staff"] = user.is_staff  # Add is_staff field
-                data["is_superuser"]=user.is_superuser
+
+                # Add custom claims to the access token payload
+                
+                access_token["is_staff"] = user.is_staff
+                access_token["is_superuser"] = user.is_superuser
+
+                # Construct user data
+                user_data = {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "is_staff": user.is_staff,
+                    "is_superuser": user.is_superuser,
+                }
             except ObjectDoesNotExist:
-                data["is_staff"] = False  # Default to False if user not found
-                data["is_superuser"]=False
+                user_data = None  # If user not found, return None
+
+            data["access"] = str(access_token)  # Encode back to string
+            data["user"] = user_data  # Add user data to the response
 
             return data
         except Exception as e:

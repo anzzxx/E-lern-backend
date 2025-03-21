@@ -65,7 +65,7 @@ class SuperuserLoginView(APIView):
         refresh = RefreshToken.for_user(user)
         access = refresh.access_token  # Generate access token from refresh
 
-        access["is_superuser"] = user.is_superuser  # Add is_superuser flag to payload
+        access["is_superuser"] = user.is_superuser # Add is_superuser flag to payload
         access["is_staff"] = user.is_staff  # Add is_staff flag to payload
 
 

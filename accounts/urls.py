@@ -12,6 +12,7 @@ urlpatterns = [
     path("resend-otp/", ResendOTPAPIView.as_view(), name="resend-otp"),
     path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
     path('reset-password/<uidb64>/<token>/', ResetPasswordView.as_view(), name='reset-password'),
+    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
 ]
 
 

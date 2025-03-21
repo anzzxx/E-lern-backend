@@ -5,6 +5,8 @@ from teacher.models import Instructor
 import cloudinary
 import cloudinary.uploader
 import cloudinary.models
+from accounts.models import CustomUser as User
+
 
 class Course(models.Model):
     STATUS_CHOICES = (
@@ -34,3 +36,23 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
+
+
+
+
+class Enrollment(models.Model):
+    STATUS_CHOICES = (
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('expired', 'Expired'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="enrollments")
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="enrollments")
+    payment = models.BooleanField(default=False)  # True if payment is successful
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    progress = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)  # Course completion percentage
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.course.title} ({self.status})"

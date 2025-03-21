@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
+import os
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -26,12 +27,13 @@ SECRET_KEY = 'django-insecure-op$*cj&w+0z1!ct%11bwyg*^)#pf_+ngod@n=_80#h+f7_wivw
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
 
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,7 +50,12 @@ INSTALLED_APPS = [
     'Categories',
     'cloudinary',
     'cadmin',
-   
+    "notifications",
+    "chat",
+    "payment",
+    "reviews",
+    "mcqtest",
+    
 ]
 
 MIDDLEWARE = [
@@ -68,7 +75,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'backend', 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -81,7 +88,16 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'backend.wsgi.application'
+# WSGI_APPLICATION = 'backend.wsgi.application'
+
+ASGI_APPLICATION = 'backend.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': "channels.layers.InMemoryChannelLayer"
+    }
+}
+
 
 
 # Database
@@ -144,9 +160,11 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+RAZORPAY_KEY_ID = "rzp_test_4sNwf4bSIwsFCK"
+RAZORPAY_KEY_SECRET = "ASVtATee0LXAqF8zTfSt5mws"
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -212,3 +230,4 @@ EMAIL_PORT = 587  # Port for sending emails
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'easyelern@gmail.com'  # Replace with your email
 EMAIL_HOST_PASSWORD = 'qxwk iuwe vnal dmjh'  # Replace with your email password
+

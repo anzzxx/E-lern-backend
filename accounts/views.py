@@ -18,7 +18,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
 
-
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 class UserRegistrationAPIView(GenericAPIView):
     permission_classes=(AllowAny,)
@@ -118,6 +119,7 @@ class UserLoginAPIView(GenericAPIView):
 
         # Add custom claim to access token payload
         access_token["is_staff"] =user.is_staff  # Adding user role
+        access_token["is_superuser"] =user.is_superuser  # Adding user role
 
         # Serialize user data
         serializer = CustomUserSerializer(user)
@@ -189,7 +191,7 @@ class ForgotPasswordView(APIView):
             send_mail(
                 "Password Reset Request",
                 f"Click the link to reset your password: {reset_link}",
-                "no-reply@sonic.com",
+                "no-reply@elern.com",
                 [user.email],
                 fail_silently=False,
             )
@@ -223,3 +225,32 @@ class ResetPasswordView(APIView):
             return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
         except (User.DoesNotExist, ValueError, TypeError):
             return Response({"error": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        current_password = request.data.get("current_password")
+        new_password = request.data.get("new_password")
+
+        # Check if current password is correct
+        if not user.check_password(current_password):
+            return Response({"error": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate new password length
+        if len(new_password) < 8:
+            return Response({"error": "New password must be at least 8 characters long."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Set the new password
+        user.set_password(new_password)
+        user.save()
+
+        return Response({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
+
+
+
+
+
