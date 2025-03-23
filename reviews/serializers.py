@@ -13,8 +13,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         user=self.context['request'].user
         course=data['course']
 
-        if Review.objects.filter(user=user,course=course).exists():
-            raise serializers.ValidationError('You have already reviewed this course')
+        # if Review.objects.filter(user=user,course=course).exists():
+        #     raise serializers.ValidationError('You have already reviewed this course')
 
         return data     
 
