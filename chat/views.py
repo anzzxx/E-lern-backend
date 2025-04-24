@@ -23,7 +23,7 @@ class MessageListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]  # Requires authentication
 
     def get_queryset(self):
-        room_name = self.kwargs.get("room_name")  # Get room name from URL
+        room_name = self.kwargs.get("room_name")  
         return ChatMessage.objects.filter(room_name=room_name).order_by("-timestamp")[:50]
 
 
@@ -47,16 +47,22 @@ class MediaUploadView(generics.CreateAPIView):
     """
     API View to upload media files with error handling.
     """
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         try:
             file = request.data.get("file")
+            content_type = file.content_type
             if not file:
                 return Response({"error": "No file was submitted"}, status=status.HTTP_400_BAD_REQUEST)
-
-            upload_result=cloudinary.uploader.upload(file)
-            file_url = upload_result.get('secure_url')
+            if content_type.startswith('image/'):
+                upload_result=cloudinary.uploader.upload(file)
+                file_url = upload_result.get('secure_url')
+            elif content_type.startswith('video/'):
+                upload_result= cloudinary.uploader.upload_large(file, resource_type="video") 
+                file_url = upload_result.get('secure_url')   
+            else:
+                return Response({"error": "Unsupported file type"}, status=status.HTTP_400_BAD_REQUEST)    
             return Response({"file_url":file_url}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": "Failed to upload media", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

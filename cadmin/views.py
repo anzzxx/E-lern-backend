@@ -12,8 +12,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from Courses.models import Course
 from .serializers import CourseSerializer
-
-
+from notifications.models import Notification
+from rest_framework.permissions import IsAdminUser
 
 
 class SuperUserOnly(permissions.BasePermission):
@@ -31,8 +31,8 @@ class UserUpdateView(generics.UpdateAPIView):
     """ Update a user's is_active status (Superuser access only) """
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [SuperUserOnly]  # Restrict to superusers
-    lookup_field = "id"  # Allow updating user by ID
+    permission_classes = [SuperUserOnly]  
+    lookup_field = "id" 
 
     def patch(self, request, *args, **kwargs):
         """ Handle PATCH requests to update is_active field """
@@ -95,18 +95,31 @@ class InactiveCourseListView(APIView):
         serializer = CourseSerializer(courses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-# API to activate a course (Only superusers can modify)
+
 class ActivateCourseView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsSuperUser]
+    permission_classes = [IsAdminUser]
 
     def patch(self, request, pk):
         try:
             course = Course.objects.get(pk=pk, is_active=False)
             course.is_active = True
             course.save()
-            return Response({"message": "Course activated successfully!"}, status=status.HTTP_200_OK)
+
+            sender =request.user
+            recipient_ids = self.request.data.get("recipients", [])  # Expecting a list of user IDs
+
+            recipients = CustomUser.objects.filter(is_active=True)
+            message=f"Course is created successfully! Enjoy the course {course.title}."
+
+            notifications = [
+                Notification(sender=sender, recipient=recipient, message=message)
+                for recipient in recipients
+            ]
+
+            Notification.objects.bulk_create(notifications)
+
+            return Response({"message": "Course activated successfully, notifications sent!"}, status=status.HTTP_200_OK)
+
         except Course.DoesNotExist:
             return Response({"error": "Course not found or already active"}, status=status.HTTP_404_NOT_FOUND)
-
-

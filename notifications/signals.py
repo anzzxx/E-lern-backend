@@ -28,7 +28,7 @@ def handle_bulk_create(sender, instances, **kwargs):
     """
     channel_layer = get_channel_layer()
     for instance in instances:
-        print(f"Handling bulk-created instance: {instance}")
+       
         # Send a notification for each bulk-created instance
         async_to_sync(channel_layer.group_send)(
             f'user_{instance.recipient.id}',  # Send to the user's specific group

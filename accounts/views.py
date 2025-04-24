@@ -22,7 +22,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 class UserRegistrationAPIView(GenericAPIView):
-    permission_classes=(AllowAny,)
+    permission_classes=(AllowAny)
     serializer_class=UserRegistrationSerializer
 
     def post(self,request,*args,**kwargs):
@@ -147,11 +147,11 @@ class UserLogoutAPIView(GenericAPIView):
 
 class ProfileUpdateView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser)  # ✅ Ensure file parsing
+    parser_classes = (MultiPartParser, FormParser) 
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        serializer = UserProfileSerializer(user)  # Serialize user data
+        serializer = UserProfileSerializer(user)  
         return Response(serializer.data, status=200)
 
     def put(self, request, *args, **kwargs):
@@ -208,14 +208,11 @@ class ResetPasswordView(APIView):
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
-            print(user)
-            print(uid)
-            print(token)
+    
             if not default_token_generator.check_token(user, token):
                 return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
             
             new_password = request.data.get("password")
-            print(new_password)
             if len(new_password) < 8:
                 return Response({"error": "Password must be at least 8 characters long."}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -236,7 +233,6 @@ class ChangePasswordView(APIView):
         current_password = request.data.get("current_password")
         new_password = request.data.get("new_password")
 
-        # Check if current password is correct
         if not user.check_password(current_password):
             return Response({"error": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
 

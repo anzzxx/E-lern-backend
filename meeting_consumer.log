@@ -1,0 +1,26 @@
+2025-04-23 13:02:07,393 - INFO - HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-04-23 13:02:07,395 - INFO - Configuring endpoint tcp:port=8000:interface=127.0.0.1
+2025-04-23 13:02:07,396 - INFO - Listening on TCP address 127.0.0.1:8000
+2025-04-23 13:02:16,332 - INFO - WebSocket HANDSHAKING /ws/chat/123/ [127.0.0.1:63382]
+2025-04-23 13:02:16,333 - DEBUG - Upgraded connection ['127.0.0.1', 63382] to WebSocket
+2025-04-23 13:02:16,405 - DEBUG - WebSocket ['127.0.0.1', 63382] open and established
+2025-04-23 13:02:16,407 - INFO - WebSocket CONNECT /ws/chat/123/ [127.0.0.1:63382]
+2025-04-23 13:02:16,415 - DEBUG - WebSocket ['127.0.0.1', 63382] accepted by application
+2025-04-23 13:02:26,738 - DEBUG - WebSocket closed for ['127.0.0.1', 63382]
+2025-04-23 13:02:26,739 - INFO - WebSocket DISCONNECT /ws/chat/123/ [127.0.0.1:63382]
+2025-04-23 13:02:33,126 - INFO - WebSocket HANDSHAKING /ws/chat/123/ [127.0.0.1:63386]
+2025-04-23 13:02:33,128 - DEBUG - Upgraded connection ['127.0.0.1', 63386] to WebSocket
+2025-04-23 13:02:33,154 - DEBUG - WebSocket ['127.0.0.1', 63386] rejected by application
+2025-04-23 13:02:33,156 - INFO - WebSocket REJECT /ws/chat/123/ [127.0.0.1:63386]
+2025-04-23 13:02:33,188 - DEBUG - WebSocket closed for ['127.0.0.1', 63386]
+2025-04-23 13:02:33,190 - INFO - WebSocket DISCONNECT /ws/chat/123/ [127.0.0.1:63386]
+2025-04-23 13:05:25,891 - INFO - C:\E-Lern\backend\Meeting\consumers.py changed, reloading.
+2025-04-23 13:05:31,634 - INFO - HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-04-23 13:05:31,636 - INFO - Configuring endpoint tcp:port=8000:interface=127.0.0.1
+2025-04-23 13:05:31,638 - INFO - Listening on TCP address 127.0.0.1:8000
+2025-04-23 13:05:47,569 - INFO - WebSocket HANDSHAKING /ws/chat/123/ [127.0.0.1:63404]
+2025-04-23 13:05:47,572 - DEBUG - Upgraded connection ['127.0.0.1', 63404] to WebSocket
+2025-04-23 13:05:47,655 - DEBUG - WebSocket ['127.0.0.1', 63404] open and established
+2025-04-23 13:05:47,656 - INFO - WebSocket CONNECT /ws/chat/123/ [127.0.0.1:63404]
+2025-04-23 13:05:47,657 - DEBUG - WebSocket ['127.0.0.1', 63404] accepted by application
+2025-04-23 13:08:31,943 - INFO - C:\E-Lern\backend\Meeting\consumers.py changed, reloading.

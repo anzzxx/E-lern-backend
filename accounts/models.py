@@ -10,7 +10,7 @@ class CustomUser(AbstractUser):
 
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_expiration = models.DateTimeField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)  # User is inactive until OTP is verified
+    is_active = models.BooleanField(default=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
@@ -20,8 +20,8 @@ class CustomUser(AbstractUser):
 
     def generate_otp(self):
         """Generate a 6-digit OTP and set expiration time."""
-        self.otp = ''.join(random.choices(string.digits, k=6))  # Generates a 6-digit OTP
-        self.otp_expiration = now() + timedelta(minutes=5)  # OTP valid for 5 minutes
+        self.otp = ''.join(random.choices(string.digits, k=6))  
+        self.otp_expiration = now() + timedelta(minutes=5) 
         self.save()
 
 

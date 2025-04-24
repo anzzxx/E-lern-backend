@@ -8,9 +8,7 @@ class Review(models.Model):
     comment=models.TextField(blank=True,null=True)
     created_at=models.DateTimeField(auto_now_add=True)
 
-    # class Meta:
-    #     unique_together=['course','user'] #one riew per use course
-
+    
     def __str__(self):
         
         return f"{self.user.username} - {self.course.title} ({self.rating})"

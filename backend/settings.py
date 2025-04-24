@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
+
 import os
 import cloudinary
 import cloudinary.uploader
@@ -26,6 +27,7 @@ SECRET_KEY = 'django-insecure-op$*cj&w+0z1!ct%11bwyg*^)#pf_+ngod@n=_80#h+f7_wivw
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
 
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
@@ -55,6 +57,7 @@ INSTALLED_APPS = [
     "payment",
     "reviews",
     "mcqtest",
+    "Meeting",
     
 ]
 
@@ -211,7 +214,7 @@ CLOUDINARY_STORAGE = {
 }
 
 cloudinary.config(
-    cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],  # Use 'CLOUD_NAME' as key
+    cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],  
     api_key=CLOUDINARY_STORAGE['API_KEY'],
     api_secret=CLOUDINARY_STORAGE['API_SECRET']
 )

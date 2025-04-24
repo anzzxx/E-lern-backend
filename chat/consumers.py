@@ -13,6 +13,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         """Handles WebSocket connection."""
         self.user = await self.get_user_from_token()
+        
         if not self.user or isinstance(self.user, AnonymousUser):
             await self.close()  # Reject the connection if authentication fails
             return
@@ -20,13 +21,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Extract room name from URL
         self.room_name = self.scope['url_route']['kwargs'].get('room_name')
         self.room_group_name = f'chat_{self.room_name}'  # Define room group name
-
+        print(self.room_group_name,"group")
         # Add the channel to the group
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
         
         # Accept the WebSocket connection
         await self.accept()
+       
 
     async def disconnect(self, close_code):
         """Handles WebSocket disconnection."""
@@ -41,15 +43,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             data = json.loads(text_data)
             message = data.get('message')
-            file_url=data.get('file_url')
-            print(file_url)
+            # file_url=data.get('file_url')
+            file_url=data.get('file')
+            
         except json.JSONDecodeError:
             return  # Ignore invalid JSON messages
 
         if message:
             # Save message to database
             await self.save_message(self.user, self.room_name, message,file_url)
-
+           
             # Send message to room group
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -63,11 +66,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         """Sends messages to WebSocket clients."""
-        await self.send(text_data=json.dumps({
-            'message': event['message'],
-            'file_url':event['file_url'],
-            'username': event['username']
-        }))
+        message = event.get('message', '').strip()
+        file_url = event.get('fileMessage', '').strip()
+        print(file_url,"firl message")
+        if message or file_url:
+            
+            await self.send(text_data=json.dumps({
+                'message': event['message'],
+                'file_url':event['file_url'],
+                'username': event['username']
+            }))
 
     @database_sync_to_async
     def save_message(self, user, room_name, message,file_url):

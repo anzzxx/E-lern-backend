@@ -1,13 +1,15 @@
 from django.urls import path
-from .views import TestView, QuestionView, AnswerView
+from .views import *
 
 urlpatterns = [
-    path('tests/', TestView.as_view(), name='test-list-create'),  # Get all tests & create new test
-    path('tests/<int:pk>/', TestView.as_view(), name='test-update'),  # Update specific test
+    path('tests/<int:pk>/', TestView.as_view(), name='test-list'),
+    path('test/create/', TestCreateView.as_view(), name='test-create'),  
 
-    path('questions/', QuestionView.as_view(), name='question-list-create'),  # Get all questions & create new question
-    path('questions/<int:pk>/', QuestionView.as_view(), name='question-update'),  # Update specific question
+    path('questions/<int:testId>/', QuestionView.as_view(), name='question-list'),
+    path('question/create/',QustionCreateView.as_view(), name='question-create'),
+    path('questions/<int:pk>/', QuestionView.as_view(), name='question-update'), 
 
-    path('answers/', AnswerView.as_view(), name='answer-list-create'),  # Get all answers & create new answer
-    path('answers/<int:pk>/', AnswerView.as_view(), name='answer-update'),  # Update specific answer
+    path('answers/<int:qustionId>/', AnswerView.as_view(), name='answer-list'),
+    path('answer/create/', AnswerCreateView.as_view(), name='answer-create'),  
+    path('answers/<int:pk>/', AnswerView.as_view(), name='answer-update'),
 ]
