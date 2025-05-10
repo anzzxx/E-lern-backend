@@ -11,5 +11,4 @@ urlpatterns = [
     path('payout/create/', InstructorPayoutCreateView.as_view(), name='instructor-payout-create'),
     path('payout-status/<int:instructor_id>/<str:date>/', InstructorPayoutStatusView.as_view(), name='instructor-payout-status'),
 
-
 ]

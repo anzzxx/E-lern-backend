@@ -2,7 +2,7 @@ from django.db import models
 from accounts.models import CustomUser
 from django.db import models
 from datetime import date
-# from Courses.models import Course
+
 
 class Instructor(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name="instructor_profile")

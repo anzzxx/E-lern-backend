@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib import admin
-from .models import Course, Enrollment, CourseReport
+from .models import Course, Enrollment, CourseReport,StudentCourseProgress
 
 
 @admin.register(Course)
@@ -23,7 +23,7 @@ class CourseReportAdmin(admin.ModelAdmin):
     list_display = ('user', 'course', 'status', 'created_at')
     search_fields = ('user__username', 'course__title')
     list_filter = ('status', 'created_at')
-
+admin.site.register(StudentCourseProgress)
 
 # Alternative method (if no customization is needed):
 # admin.site.register(Course)

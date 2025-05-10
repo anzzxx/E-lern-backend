@@ -5,7 +5,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import Notification
 
-# Custom signal for bulk create
+
 bulk_create_done = Signal()
 
 @receiver(post_save, sender=Notification)
@@ -15,7 +15,7 @@ def send_notification(sender, instance, **kwargs):
     """
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        f'user_{instance.user.id}',  # Send to the user's specific group
+        f'user_{instance.user.id}',  
         {
             'type': 'send_notification',
             'message': instance.message
@@ -29,14 +29,13 @@ def handle_bulk_create(sender, instances, **kwargs):
     channel_layer = get_channel_layer()
     for instance in instances:
        
-        # Send a notification for each bulk-created instance
         async_to_sync(channel_layer.group_send)(
-            f'user_{instance.recipient.id}',  # Send to the user's specific group
+            f'user_{instance.recipient.id}',  
             {
                 'type': 'send_notification',
                 'message': instance.message
             }
         )
 
-# Connect the bulk_create_done signal to the handle_bulk_create handler
+
 bulk_create_done.connect(handle_bulk_create, sender=Notification)

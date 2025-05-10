@@ -15,6 +15,7 @@ class IsStaffOnly(BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.is_staff
 
+
 class NotificationCreateView(CreateAPIView):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -51,6 +52,8 @@ class UnreadNotificationsView(ListAPIView):
         Returns only unread notifications for the authenticated user.
         """
         return Notification.objects.filter(recipient=self.request.user, is_read=False)
+
+    
         
 class MarkAllNotificationsReadView(UpdateAPIView):
     """

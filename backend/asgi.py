@@ -4,11 +4,12 @@ from channels.auth import AuthMiddlewareStack
 import chat.routing  # Ensure these are correct
 import notifications.routing  # Ensure these are correct
 import Meeting.routing
+import Lessons.routing
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": AuthMiddlewareStack(
         URLRouter(  # URLRouter only takes one argument: a list of urlpatterns
-            chat.routing.websocket_urlpatterns + notifications.routing.websocket_urlpatterns+Meeting.routing.websocket_urlpatterns
+            chat.routing.websocket_urlpatterns + notifications.routing.websocket_urlpatterns+Meeting.routing.websocket_urlpatterns+Lessons.routing.websocket_urlpatterns
         )
     ),
 })

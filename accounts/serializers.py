@@ -1,53 +1,65 @@
-from .models import CustomUser
-from rest_framework import serializers
-from django.contrib.auth import authenticate
-import logging
+from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-import random
-import datetime
-from django.utils.timezone import now  # ✅ Import now() correctly
-from rest_framework import serializers
 from django.core.mail import send_mail
-from .models import CustomUser
+from django.utils.timezone import now
+from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+import datetime
+import logging
+import random
+
+from .models import CustomUser
+
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
 
 class CustomUserSerializer(serializers.ModelSerializer):
+    """Serializer for CustomUser model."""
     class Meta:
-        model=CustomUser
-        fields=("id","username","email")
+        model = CustomUser
+        fields = ("id", "username", "email")
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password1=serializers.CharField(write_only=True)
-    password2=serializers.CharField(write_only=True)
+    """Serializer for user registration with password validation."""
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
 
     class Meta:
-        model=CustomUser
-        fields=("id","username","email","password1","password2")
-        extra_kwargs={"password":{"write_only":True}}
+        model = CustomUser
+        fields = ("id", "username", "email", "password1", "password2")
+        extra_kwargs = {"password": {"write_only": True}}
 
-    def validate(self,attrs):
+    def validate(self, attrs):
+        """Validate password fields."""
         if attrs['password1'] != attrs['password2']:
             raise serializers.ValidationError("password do not match!")
 
-        password=attrs.get("password1", "")
-        if len(password)<8:
-            raise serializers.ValidationError("Password must be at least 8 characters!")
+        password = attrs.get("password1", "")
+        if len(password) < 8:
+            raise serializers.ValidationError(
+                "Password must be at least 8 characters!"
+            )
+        return attrs
 
-        return attrs    
-
-    def create(self,validated_data):
-        password=validated_data.pop("password1")
+    def create(self, validated_data):
+        """Create user with OTP verification."""
+        password = validated_data.pop("password1")
         validated_data.pop("password2")
 
         otp = str(random.randint(100000, 999999))
-        otp_expiration = now() + datetime.timedelta(minutes=10)  # OTP expires in 10 minutes
+        otp_expiration = now() + datetime.timedelta(minutes=10)
 
-        user = CustomUser.objects.create_user(password=password, otp=otp, otp_expiration=otp_expiration, **validated_data)
-        user.is_active = False # User is inactive until OTP is verified
+        user = CustomUser.objects.create_user(
+            password=password,
+            otp=otp,
+            otp_expiration=otp_expiration,
+            **validated_data
+        )
+        user.is_active = False  # User is inactive until OTP is verified
         user.save()
 
         # Send OTP via email
@@ -57,28 +69,29 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         return user
 
-        # return  CustomUser.objects.create_user(password=password,**validated_data) 
-
 
 class UserLoginSerializer(serializers.Serializer):
-    email=serializers.CharField()
-    password=serializers.CharField(write_only=True)
+    """Serializer for user login."""
+    email = serializers.CharField()
+    password = serializers.CharField(write_only=True)
 
-    def validate(self,data):
-        user=authenticate(**data)
+    def validate(self, data):
+        """Validate user credentials."""
+        user = authenticate(**data)
         if user and user.is_active:
             return user
-        raise serializers.ValidationError("incorrect Credential")    
-
+        raise serializers.ValidationError("incorrect Credential")
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    """Serializer for user profile."""
     class Meta:
         model = CustomUser
         fields = ["username", "email", "profile_picture"]
         read_only_fields = ["email"]
 
     def update(self, instance, validated_data):
+        """Update user profile."""
         instance.username = validated_data.get("username", instance.username)
         if "profile_picture" in validated_data:
             instance.profile_picture = validated_data["profile_picture"]
@@ -86,14 +99,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
-
-
-logger = logging.getLogger(__name__)
-User = get_user_model()
-
-
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    """Custom JWT token refresh serializer with additional user data."""
     def validate(self, attrs):
+        """Validate and refresh token with additional user claims."""
         try:
             logger.info(f"Received data: {attrs}")  # Log input data
 
@@ -108,7 +117,6 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
                 user = User.objects.get(id=user_id)
 
                 # Add custom claims to the access token payload
-                
                 access_token["is_staff"] = user.is_staff
                 access_token["is_superuser"] = user.is_superuser
 

@@ -5,7 +5,10 @@ import cloudinary.uploader
 import cloudinary.models
 from Courses.models import Course,StudentCourseProgress 
 from accounts.models import CustomUser as User
+from django.contrib.auth import get_user_model
 
+
+User = get_user_model()
 
 
 class Lesson(models.Model):
@@ -67,3 +70,19 @@ def update_student_course_progress(student, course):
         progress_obj.progress = progress_percent
         progress_obj.is_completed = completed_lessons == total_lessons
         progress_obj.save()
+
+
+
+class CourseComment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    course_id = models.CharField(max_length=100)
+    message = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+    reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
+    mentions = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.user.username}: {self.message[:50]}"      

@@ -1,38 +1,54 @@
 from django.conf import settings
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-import json
-import razorpay
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from .models import Payment,MonthlyCourseStats
-from accounts.models import CustomUser as User
-from Courses.models import Course, Enrollment,StudentCourseProgress
-from .serializers import *
 from django.db.models.functions import TruncMonth
-from django.db.models import Count
-from rest_framework.response import Response
+from django.db.models import Count, Sum
+from django.utils.timezone import make_aware
+from datetime import datetime, timedelta, date
+import json
+import calendar
+import razorpay
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from rest_framework import status
-from datetime import date, timedelta
-from .models import MonthlyCourseStats
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics
+
+from .models import Payment, MonthlyCourseStats, InstructorPayout
+from accounts.models import CustomUser as User
+from Courses.models import Course, Enrollment, StudentCourseProgress
 from teacher.models import Instructor
-from datetime import datetime, timedelta
-from django.utils.timezone import make_aware
-from .models import MonthlyCourseStats, Instructor
-from django.db.models import Sum
-import calendar
-from dateutil.relativedelta import relativedelta
-from .models import InstructorPayout
+from .serializers import (
+    PaymentSerializer,
+    MonthlyCourseStatsSerializer,
+    InstructorPayoutSerializer
+)
 
 # Initialize Razorpay client
-razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+razorpay_client = razorpay.Client(
+    auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+)
+
 
 class CreatePaymentView(APIView):
+    """
+    API endpoint for creating Razorpay payment orders.
+    Requires authenticated user and course details.
+    """
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
+        """
+        Create a Razorpay payment order.
+        
+        Args:
+            request: Contains amount and course_id
+            
+        Returns:
+            JsonResponse: Razorpay order details or error message
+        """
         try:
             data = request.data
             amount = int(data.get("amount", 0)) * 100  # Convert to paisa
@@ -40,9 +56,10 @@ class CreatePaymentView(APIView):
             user_id = request.user.id
             
             if not amount or not course_id:
-                return JsonResponse({"success": False, "message": "Missing required fields"}, status=400)
-            
-            print(f"Creating order for User: {user_id}, Course: {course_id}, Amount: {amount}")
+                return JsonResponse(
+                    {"success": False, "message": "Missing required fields"},
+                    status=400
+                )
             
             order_data = {
                 "amount": amount,
@@ -54,42 +71,40 @@ class CreatePaymentView(APIView):
             return JsonResponse(order)
         
         except Exception as e:
-            print(f"Error creating order: {e}")
-            return JsonResponse({"success": False, "error": str(e)}, status=500)
-
-
-class WebhookView(APIView):
-    def post(self, request):
-        payload = request.body
-        signature = request.headers.get("X-Razorpay-Signature")
-        
-        try:
-            razorpay_client.utility.verify_webhook_signature(payload, signature, settings.RAZORPAY_KEY_SECRET)
-            data = json.loads(payload)
-            print(f"Webhook Payment Success: {json.dumps(data, indent=4)}")
-            return JsonResponse({"status": "success"})
-        
-        except Exception as e:
-            print(f"Webhook verification failed: {e}")
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+            return JsonResponse(
+                {"success": False, "error": str(e)},
+                status=500
+            )
 
 
 class VerifyPaymentView(APIView):
+    """
+    API endpoint for verifying Razorpay payments and processing enrollments.
+    """
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
+        """
+        Verify payment signature and process course enrollment.
+        
+        Args:
+            request: Contains payment verification details
+            
+        Returns:
+            JsonResponse: Payment verification status
+        """
         try:
             data = request.data
             payment_id = data.get("payment_id")
             order_id = data.get("order_id")
             signature = data.get("signature")
             course_id = data.get("course_id")
-            transaction_id = data.get("transaction_id")
-            payment_method = data.get("method")
-            status = data.get("status")
             
-            if not payment_id or not order_id or not signature:
-                return JsonResponse({"success": False, "message": "Missing payment details"}, status=400)
+            if not all([payment_id, order_id, signature]):
+                return JsonResponse(
+                    {"success": False, "message": "Missing payment details"},
+                    status=400
+                )
             
             params_dict = {
                 "razorpay_order_id": order_id,
@@ -99,141 +114,184 @@ class VerifyPaymentView(APIView):
             
             try:
                 razorpay_client.utility.verify_payment_signature(params_dict)
-                payment_verified = True
-            except razorpay.errors.SignatureVerificationError as e:
-                return JsonResponse({"success": False, "message": "Invalid payment signature"}, status=400)
+            except razorpay.errors.SignatureVerificationError:
+                return JsonResponse(
+                    {"success": False, "message": "Invalid payment signature"},
+                    status=400
+                )
             
-            if payment_verified:
-                user = request.user
-                course = Course.objects.get(id=course_id)
-                
-                # Save payment details in the database
-                payment = Payment.objects.create(
-                    user=user,
-                    course=course,
-                    amount=data.get("amount", 0),
-                    method=payment_method or "unknown",
-                    transaction_id=transaction_id,
-                    status="success",
-                )
-                
-                # Enroll user in the course after successful payment
-                Enrollment.objects.create(
-                    user=user,
-                    course=course,
-                    payment=True,
-                    status="active"
-                )
+            user = request.user
+            course = Course.objects.get(id=course_id)
+            
+            # Save payment details
+            payment = Payment.objects.create(
+                user=user,
+                course=course,
+                amount=data.get("amount", 0),
+                method=data.get("method", "unknown"),
+                transaction_id=data.get("transaction_id"),
+                status="success",
+            )
+            
+            # Enroll user in course
+            Enrollment.objects.create(
+                user=user,
+                course=course,
+                payment=True,
+                status="active"
+            )
 
-                StudentCourseProgress.objects.create(
-                    student=user,
-                    course=course,
-                    completed_lessons_count=0,  
-                    progress=0.00, 
-                    is_completed=False  
-                )
-                # Assume 60% instructor, 40% platform
-                INSTRUCTOR_PERCENT = Decimal('0.60')
-                PLATFORM_PERCENT = Decimal('0.40')
-
-                today = date.today()
-                month_start = today.replace(day=1)
-
-                instructor = course.instructor
-                course_price = Decimal(course.price)
-      
-                stats, created = MonthlyCourseStats.objects.get_or_create(
-                    instructor=instructor,
-                    course=course,
-                    month=month_start,
-                    defaults={
-                        "total_enrollments": 1,
-                        "total_amount": course_price,
-                        "instructor_share": course_price * INSTRUCTOR_PERCENT,
-                        "platform_share": course_price * PLATFORM_PERCENT,
-                    }
-                )
-
-                if not created:
-                    stats.total_enrollments += 1
-                    stats.total_amount += course_price
-                    stats.instructor_share += course_price * INSTRUCTOR_PERCENT
-                    stats.platform_share += course_price * PLATFORM_PERCENT
-                    stats.save()
-                
-                return JsonResponse({"success": True, "message": "Payment verified successfully!"})
+            StudentCourseProgress.objects.create(
+                student=user,
+                course=course,
+                completed_lessons_count=0,
+                progress=0.00,
+                is_completed=False
+            )
+            
+            # Update monthly stats
+            self._update_monthly_stats(course)
+            
+            return JsonResponse(
+                {"success": True, "message": "Payment verified successfully!"}
+            )
         
+        except Course.DoesNotExist:
+            return JsonResponse(
+                {"success": False, "message": "Course not found"},
+                status=404
+            )
         except Exception as e:
-            return JsonResponse({"success": False, "error": str(e)}, status=500)
-        
-        return JsonResponse({"success": False, "message": "Invalid request"}, status=400)
+            return JsonResponse(
+                {"success": False, "error": str(e)},
+                status=500
+            )
+    
+    def _update_monthly_stats(self, course):
+        """Helper method to update monthly enrollment statistics."""
+        INSTRUCTOR_PERCENT = Decimal('0.60')
+        PLATFORM_PERCENT = Decimal('0.40')
+        today = date.today()
+        month_start = today.replace(day=1)
+        course_price = Decimal(course.price)
 
+        stats, created = MonthlyCourseStats.objects.get_or_create(
+            instructor=course.instructor,
+            course=course,
+            month=month_start,
+            defaults={
+                "total_enrollments": 1,
+                "total_amount": course_price,
+                "instructor_share": course_price * INSTRUCTOR_PERCENT,
+                "platform_share": course_price * PLATFORM_PERCENT,
+            }
+        )
+
+        if not created:
+            stats.total_enrollments += 1
+            stats.total_amount += course_price
+            stats.instructor_share += course_price * INSTRUCTOR_PERCENT
+            stats.platform_share += course_price * PLATFORM_PERCENT
+            stats.save()
 
 
 class InstructorMonthlyStatsView(APIView):
+    """
+    API endpoint to retrieve monthly stats for an instructor.
+    """
     permission_classes = [IsAuthenticated]
+
     def get(self, request, instructor_id):
+        """
+        Get last 5 monthly stats records for an instructor.
+        
+        Args:
+            instructor_id: ID of the instructor
+            
+        Returns:
+            Response: Serialized monthly stats data
+        """
         try:
-            stats = MonthlyCourseStats.objects.filter(instructor=instructor_id).order_by('-month')[:5]
+            stats = MonthlyCourseStats.objects.filter(
+                instructor=instructor_id
+            ).order_by('-month')[:5]
             serializer = MonthlyCourseStatsSerializer(stats, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        except MonthlyCourseStats.DoesNotExist:
-            return Response({"error": "Instructor not found or no data available."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class PaymentListView(generics.ListAPIView):
+    """
+    API endpoint to list all payments ordered by creation date.
+    """
     queryset = Payment.objects.all().order_by('-created_at')
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
-    
-class InstructorEnrollmentStats(APIView):
-    
-    def get(self,request,instructor_id):
-        enrollments=(
-            Enrollment.objects
-            .filter(course__instructor_id=instructor_id)
-            .annotate(month=TruncMonth('enrolled_at'))
-            .values('course__title','course__price','month')
-            .annotate(enrollment_count=Count('id'))
-            .order_by('month')
-            
-        )    
-        try:
-            return Response(enrollments)
-        except:
-            return Response({error:"some error occourd"})
 
+
+class InstructorEnrollmentStats(APIView):
+    """
+    API endpoint for enrollment statistics by instructor.
+    """
+    def get(self, request, instructor_id):
+        """
+        Get enrollment counts by month for an instructor's courses.
+        
+        Args:
+            instructor_id: ID of the instructor
+            
+        Returns:
+            Response: Enrollment statistics data
+        """
+        try:
+            enrollments = (
+                Enrollment.objects
+                .filter(course__instructor_id=instructor_id)
+                .annotate(month=TruncMonth('enrolled_at'))
+                .values('course__title', 'course__price', 'month')
+                .annotate(enrollment_count=Count('id'))
+                .order_by('month')
+            )
+            return Response(enrollments)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class InstructorPayoutSummary(APIView):
+    """
+    API endpoint for instructor payout summary for previous month.
+    """
     def get(self, request, instructor_id):
         """
-        Get payment summary for an instructor for the previous month
+        Get payment summary for an instructor for the previous month.
+        
         Returns:
-        {
-            "month": "April 2023",
-            "total_amount": 1000.00,
-            "instructor_share": 600.00,
-            "platform_share": 400.00
-        }
+            Response: {
+                "month": "April 2023",
+                "total_amount": 1000.00,
+                "instructor_share": 600.00,
+                "platform_share": 400.00
+            }
         """
-        # Calculate previous month
         today = date.today()
         first_day_of_prev_month = date(today.year, today.month, 1) - relativedelta(months=1)
         
-        # Get all records for the instructor from previous month
         previous_month_stats = MonthlyCourseStats.objects.filter(
             instructor_id=instructor_id,
             month=first_day_of_prev_month
         )
         
-        # If no records found
         if not previous_month_stats.exists():
             return Response(
                 {
-                    "detail": f"No payment records found for {first_day_of_prev_month.strftime('%B %Y')}",
+                    "detail": f"No records for {first_day_of_prev_month.strftime('%B %Y')}",
                     "month": first_day_of_prev_month.strftime('%B %Y'),
                     "total_amount": 0,
                     "instructor_share": 0,
@@ -242,71 +300,84 @@ class InstructorPayoutSummary(APIView):
                 status=status.HTTP_200_OK
             )
         
-        # Calculate totals by summing all records
-        total_amount = previous_month_stats.aggregate(
-            total=Sum('total_amount')
-        )['total'] or 0
+        aggregates = previous_month_stats.aggregate(
+            total_amount=Sum('total_amount') or 0,
+            instructor_share=Sum('instructor_share') or 0,
+            platform_share=Sum('platform_share') or 0
+        )
         
-        instructor_share = previous_month_stats.aggregate(
-            total=Sum('instructor_share')
-        )['total'] or 0
-        
-        platform_share = previous_month_stats.aggregate(
-            total=Sum('platform_share')
-        )['total'] or 0
-        
-        # Format response
-        response_data = {
+        return Response({
             "month": first_day_of_prev_month.strftime('%B %Y'),
-            "total_amount": float(total_amount),
-            "instructor_share": float(instructor_share),
-            "platform_share": float(platform_share)
-        }
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-
+            "total_amount": float(aggregates['total_amount']),
+            "instructor_share": float(aggregates['instructor_share']),
+            "platform_share": float(aggregates['platform_share'])
+        })
 
 
 class InstructorPayoutCreateView(APIView):
-    def post(self, request, *args, **kwargs):
+    """
+    API endpoint for creating instructor payouts.
+    """
+    def post(self, request):
+        """
+        Create a payout record and update monthly stats.
+        
+        Args:
+            request: Contains payout details
+            
+        Returns:
+            Response: Created payout data or errors
+        """
         serializer = InstructorPayoutSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            instructor = serializer.validated_data.get('instructor')
-            month = serializer.validated_data.get('month')
-            given_date = month  
-            ev=MonthlyCourseStats.objects.filter(
-                instructor=instructor.id,
-                month__year=given_date.year,
-                month__month=given_date.month
+            payout = serializer.save()
+            
+            # Update monthly stats
+            MonthlyCourseStats.objects.filter(
+                instructor=payout.instructor.id,
+                month__year=payout.month.year,
+                month__month=payout.month.month
             ).update(
                 paid_to_instructor=True,
-                paid_on=given_date
+                paid_on=payout.month
             )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class InstructorPayoutStatusView(APIView):
-    def get(self, request, instructor_id, date):
-        try:
-            # Parse the date string (format: YYYY-MM-DD) into a date object
-            # We only need year and month, so day can be ignored or set to 1
-            parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
-            year = parsed_date.year
-            month = parsed_date.month
+    """
+    API endpoint to check payout status for an instructor in a specific month.
+    """
+    def get(self, request, instructor_id, date_str):
+        """
+        Get payout status for instructor in specified month.
+        
+        Args:
+            date_str: Date in YYYY-MM-DD format (day is ignored)
             
-            # Get the payout record for the instructor and month
-            # We'll query for any date in that month (using __year and __month lookups)
+        Returns:
+            Response: Payout details or error message
+        """
+        try:
+            parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            
             payout = InstructorPayout.objects.get(
                 instructor__id=instructor_id,
-                month__year=year,
-                month__month=month
+                month__year=parsed_date.year,
+                month__month=parsed_date.month
             )
             
             serializer = InstructorPayoutSerializer(payout)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
+            return Response(serializer.data)
+            
         except ValueError:
             return Response(
                 {"detail": "Invalid date format. Use YYYY-MM-DD."},
@@ -314,7 +385,7 @@ class InstructorPayoutStatusView(APIView):
             )
         except InstructorPayout.DoesNotExist:
             return Response(
-                {"detail": f"No payout record found for instructor {instructor_id} in {parsed_date.strftime('%B %Y')}."},
+                {"detail": f"No payout record found for {parsed_date.strftime('%B %Y')}."},
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
